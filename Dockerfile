@@ -1,4 +1,4 @@
-FROM node:lts-alpine
+FROM node:18-alpine
 
 # pass N8N_VERSION Argument while building or use default
 

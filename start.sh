@@ -43,7 +43,7 @@ N8N_DB_PORT="$(echo $N8N_DB_HOSTPORT | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*
 # DB switch
 if [ $N8N_DB_SCHEME == 'postgres' ]
 then
-    echo "indentified DB in use postgreSQL"
+    echo "identified DB in use postgreSQL"
 	export DB_TYPE=postgresdb
 	export DB_POSTGRESDB_HOST=$N8N_DB_HOST
 	export DB_POSTGRESDB_PORT=$N8N_DB_PORT
@@ -53,7 +53,7 @@ then
 
 elif [ $N8N_DB_SCHEME == 'mongodb' ]
 then
-    echo "indentified DB in use mongoDB"
+    echo "identified DB in use mongoDB"
 	export DB_TYPE=mongodb
 	export DB_MONGODB_CONNECTION_URL=$ARG_URL
 	
@@ -61,10 +61,21 @@ else
 	echo "invalid url arg"
 fi
 
-# parse REDIS_TEMPORARY_URL if present
-if [ "$REDIS_TEMPORARY_URL" ]
+# parse REDIS_URL for TLS connections
+if [ "$REDIS_URL" ]
 then 
-	echo "redis config detected"
+	echo "redis config detected (REDIS_URL)"
+	PREFIX="N8N_REDIS_" parse_url "$REDIS_URL"
+	# Separate host and port    
+	N8N_REDIS_HOST="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,:.*,,g')"
+	N8N_REDIS_PORT="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+	export QUEUE_BULL_REDIS_HOST=$N8N_REDIS_HOST
+	export QUEUE_BULL_REDIS_PORT=$N8N_REDIS_PORT
+	export QUEUE_BULL_REDIS_PASSWORD=$N8N_REDIS_PASSWORD
+	export QUEUE_BULL_REDIS_TLS=true
+elif [ "$REDIS_TEMPORARY_URL" ]
+then 
+	echo "redis config detected (REDIS_TEMPORARY_URL)"
 	PREFIX="N8N_REDIS_" parse_url "$REDIS_TEMPORARY_URL"
 	# Separate host and port    
 	N8N_REDIS_HOST="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,:.*,,g')"
@@ -72,6 +83,7 @@ then
 	export QUEUE_BULL_REDIS_HOST=$N8N_REDIS_HOST
 	export QUEUE_BULL_REDIS_PORT=$N8N_REDIS_PORT
 	export QUEUE_BULL_REDIS_PASSWORD=$N8N_REDIS_PASSWORD
+	export QUEUE_BULL_REDIS_TLS=false
 fi
 
 # Set data pruning environment variables

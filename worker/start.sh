@@ -91,8 +91,8 @@ then
     # Determine TLS setting from URL scheme
     if [[ "$REDIS_CONNECTION_URL" == rediss://* ]]; then
         export QUEUE_BULL_REDIS_TLS=true
-        export QUEUE_BULL_REDIS_TLS_CONFIG='{"rejectUnauthorized": false}'
-        echo "Redis TLS enabled with self-signed certificate support"
+        export QUEUE_BULL_REDIS_TLS_CONFIG='{}'
+        echo "Redis TLS enabled with strict certificate validation"
     else
         export QUEUE_BULL_REDIS_TLS=false
         echo "Redis TLS disabled"

@@ -59,28 +59,57 @@ else
 fi
 
 # parse REDIS_URL for TLS connections
-if [ "$REDIS_URL" ]
+if [ "$REDIS_URL" ] || [ "$REDIS_TEMPORARY_URL" ]
 then 
-	echo "redis config detected (REDIS_URL)"
-	PREFIX="N8N_REDIS_" parse_url "$REDIS_URL"
-	# Separate host and port    
-	N8N_REDIS_HOST="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,:.*,,g')"
-	N8N_REDIS_PORT="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
-	export QUEUE_BULL_REDIS_HOST=$N8N_REDIS_HOST
-	export QUEUE_BULL_REDIS_PORT=$N8N_REDIS_PORT
-	export QUEUE_BULL_REDIS_PASSWORD=$N8N_REDIS_PASSWORD
-	export QUEUE_BULL_REDIS_TLS=true
-elif [ "$REDIS_TEMPORARY_URL" ]
-then 
-	echo "redis config detected (REDIS_TEMPORARY_URL)"
-	PREFIX="N8N_REDIS_" parse_url "$REDIS_TEMPORARY_URL"
-	# Separate host and port    
-	N8N_REDIS_HOST="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,:.*,,g')"
-	N8N_REDIS_PORT="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
-	export QUEUE_BULL_REDIS_HOST=$N8N_REDIS_HOST
-	export QUEUE_BULL_REDIS_PORT=$N8N_REDIS_PORT
-	export QUEUE_BULL_REDIS_PASSWORD=$N8N_REDIS_PASSWORD
-	export QUEUE_BULL_REDIS_TLS=false
+    # Use REDIS_URL if available, otherwise fall back to REDIS_TEMPORARY_URL
+    REDIS_CONNECTION_URL=${REDIS_URL:-$REDIS_TEMPORARY_URL}
+    echo "Redis config detected: ${REDIS_CONNECTION_URL}"
+    
+    PREFIX="N8N_REDIS_" parse_url "$REDIS_CONNECTION_URL"
+    
+    # Separate host and port    
+    N8N_REDIS_HOST="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,:.*,,g')"
+    N8N_REDIS_PORT="$(echo $N8N_REDIS_HOSTPORT | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+    
+    # Set default Redis port if not specified
+    if [ -z "$N8N_REDIS_PORT" ]; then
+        N8N_REDIS_PORT=6379
+        echo "No Redis port specified, using default: 6379"
+    fi
+    
+    # Validate parsed values
+    if [ -z "$N8N_REDIS_HOST" ]; then
+        echo "Error: Invalid Redis URL - could not parse host"
+        exit 1
+    fi
+    
+    # Configure Queue settings
+    export QUEUE_BULL_REDIS_HOST=$N8N_REDIS_HOST
+    export QUEUE_BULL_REDIS_PORT=$N8N_REDIS_PORT
+    export QUEUE_BULL_REDIS_PASSWORD=$N8N_REDIS_PASSWORD
+    
+    # Determine TLS setting from URL scheme
+    if [[ "$REDIS_CONNECTION_URL" == rediss://* ]]; then
+        export QUEUE_BULL_REDIS_TLS=true
+        export QUEUE_BULL_REDIS_TLS_CONFIG='{"rejectUnauthorized": false}'
+        echo "Redis TLS enabled with self-signed certificate support"
+    else
+        export QUEUE_BULL_REDIS_TLS=false
+        echo "Redis TLS disabled"
+    fi
+
+    # Configure Queue type
+    export QUEUE_BULL_REDIS_DB=0
+    export QUEUE_BULL_REDIS_TIMEOUT=5000
+    export QUEUE_BULL_REDIS_RETRYINTERVAL=2000
+    export QUEUE_BULL_REDIS_MAXRETRIESPERREQUEST=3
+    
+    echo "Redis Configuration:"
+    echo "Host: $QUEUE_BULL_REDIS_HOST"
+    echo "Port: $QUEUE_BULL_REDIS_PORT"
+    echo "TLS: $QUEUE_BULL_REDIS_TLS"
+    echo "Password: ${QUEUE_BULL_REDIS_PASSWORD:+*****}"
+    echo "Timeout: $QUEUE_BULL_REDIS_TIMEOUT"
 fi
 
 # Print QUEUE_BULL_* variables
